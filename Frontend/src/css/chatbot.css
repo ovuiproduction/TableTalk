@@ -20,17 +20,18 @@
 }
 
 .response-container{
-    height:85%;
+    height:40%;
     width:80%;
     margin: auto;
     color: white;
-    /* border: 1px solid red; */
 }
 .file-name{
     box-sizing: border-box;
     height:8%;
-    padding:0.5rem;
-    /* border: 1px solid red; */
+    width:60%;
+    margin: auto;
+    padding:2rem;
+    color: white;
 }
 .response-block{
     height:92%;
@@ -38,7 +39,6 @@
     width:80%;
     margin: auto;
     color: white;
-    /* border: 1px solid red; */
 }
 
 ::-webkit-scrollbar{
@@ -47,13 +47,15 @@
 }
 
 .input-block{
-    width:80%;
+    width:60%;
     height:10%;
     margin: auto;
     padding:0.5rem;
     display: flex;
     justify-content: space-around;
     border: 5px;
+    border:1px solid gray;
+    margin-top:2rem;
 }
 
 .input-block input{
@@ -72,13 +74,6 @@
     padding:0.5rem;
 }
 
-/* .data-block{
-    width:50%;
-    margin: auto;
-    margin-top:3rem;
-    color: white;
-} */
-
 .no-data-display{
     width:100%;
     height:100%;
@@ -93,7 +88,7 @@
 .user-query{
     border-radius:5px;
     padding:0.5rem;
-    background-color:rgba(30, 36, 40,0.4);
+    background-color:rgba(30, 36, 40,0.5);
 }
 
 .chat-table {
@@ -114,3 +109,43 @@
     width:100%;
     border-radius: 5px;
 }
+
+.loader {
+    width: 55px;
+    aspect-ratio: 1;
+    --g1:conic-gradient(from  90deg at top    3px left  3px,#0000 90deg,#fff 0);
+    --g2:conic-gradient(from -90deg at bottom 3px right 3px,#0000 90deg,#fff 0);
+    background:
+      var(--g1),var(--g1),var(--g1),var(--g1), 
+      var(--g2),var(--g2),var(--g2),var(--g2);
+    background-position: 0 0,100% 0,100% 100%,0 100%;
+    background-size: 25px 25px;
+    background-repeat: no-repeat;
+    animation: l11 1.5s infinite;
+  }
+  @keyframes l11 {
+    0%   {background-size:35px 15px,15px 15px,15px 35px,35px 35px}
+    25%  {background-size:35px 35px,15px 35px,15px 15px,35px 15px}
+    50%  {background-size:15px 35px,35px 35px,35px 15px,15px 15px}
+    75%  {background-size:15px 15px,35px 15px,35px 35px,15px 35px}
+    100% {background-size:35px 15px,15px 15px,15px 35px,35px 35px}
+  }
+
+  .response{
+    width:60%;
+    margin: auto;
+    margin-top:3rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    flex-direction: column;
+  }
+
+  .evalute-btn{
+    margin:1rem;
+  }
+
+
+  .evaluation-score-board{
+    color: white;
+  }
