@@ -17,6 +17,7 @@
     box-sizing: border-box;
     width:100vw;
     height:90vh;
+    overflow-y: scroll;
 }
 
 .response-container{
@@ -30,7 +31,7 @@
     height:8%;
     width:60%;
     margin: auto;
-    padding:2rem;
+    padding:1rem 0px;
     color: white;
 }
 .response-block{
@@ -50,12 +51,10 @@
     width:60%;
     height:10%;
     margin: auto;
-    padding:0.5rem;
+    padding:0.5rem 0px;
     display: flex;
     justify-content: space-around;
     border: 5px;
-    border:1px solid gray;
-    margin-top:2rem;
 }
 
 .input-block input{
@@ -105,12 +104,27 @@
 }
 
 .chat-response {
-    height: auto;
-    width:100%;
-    border-radius: 5px;
+    color: white;
+    font-size:25px;
+    font-weight: 700;
+    margin: auto;
+    height: max-content;
+    width:60%;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    justify-content: center;
+    gap:1rem;
+    margin-top:3rem;
+}
+
+.query{
+    font-size:20px;
 }
 
 .loader {
+    margin: auto;
+    margin-top:1rem;
     width: 55px;
     aspect-ratio: 1;
     --g1:conic-gradient(from  90deg at top    3px left  3px,#0000 90deg,#fff 0);
@@ -147,5 +161,81 @@
 
 
   .evaluation-score-board{
+    color: white;
+  }
+
+  .query-block{
+    width: 60%;
+    margin: 1rem auto;
+    height:10vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .query-block input{
+    width:100%;
+    padding:0.5rem;
+  }
+
+  .file-upload{
+
+    color: white;
+    flex-direction: column;
+    justify-content: left;
+    margin-bottom:2rem;
+  }
+.file-upload label{
+  font-size:12px;
+}
+  .file-upload input[type="file"]{
+    width:30%;
+  }
+
+  .submit-btn{
+    justify-content: right;
+  }
+
+  .submit-btn button{
+    outline: none;
+    color: rgb(40, 45, 49);
+    font-size:20px;
+    font-weight: 400;
+    border: none;
+    border-radius:3px;
+    background-color:white;
+  }
+
+  .submit-btn button:hover{
+    color: white;
+    background-color:lightslategrey;
+  }
+  
+  .chat-bot-header i{
+    font-size:18px;
+  }
+::-webkit-scrollbar{
+  width:0px;
+  height:0px;
+}
+  .table-info{
+    width:60%;
+    overflow-x: scroll;
+    height:max-content;
+    padding:0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: left;
+    gap:1rem;
+    color: white;
+    margin: auto;
+    background-color: rgb(91, 92, 93);
+  }
+
+  .label-table-schema{
+    width:60%;
+    height: max-content;
+    margin:auto;
+    font-size:14px;
     color: white;
   }

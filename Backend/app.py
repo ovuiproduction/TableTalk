@@ -4,14 +4,14 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 import sqlite3
 import pandas as pd
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 import re
 import time
-from flask_cors import cross_origin
-from evaluation import final_score
 
-app = Flask(__name__, template_folder="templates", static_folder="static")
+app = Flask(__name__)
 CORS(app)
+
+CORS(app, origins=["http://localhost:3000"])
 
 # Load API key from environment variables
 load_dotenv()
@@ -114,8 +114,8 @@ def sql_query_generation_prompt(text,table_title, table_info):
                     
     ### Given User Query : {text}
     ### Table Name : {table_title}
-    ### Table info : {table_info}
-   
+    ### Table schema : {table_info}
+    
     #Output format
     In output with the query you should return the column name and the row index that are involved to execute the query.
     
@@ -153,8 +153,7 @@ def extract_type(filename):
 
 def csv_to_db(file):
     df = pd.read_csv(file)
-    df.insert(0, "ROW_ID", range(0, len(df)))
-    df.to_csv("updated_input")
+    # df.insert(0, "ROW_ID", range(0, len(df)))
     db_file = extract_name(file.filename) + ".db"
     conn = sqlite3.connect(db_file)
     df.to_sql("tableName", conn, if_exists="replace", index=False)
@@ -194,12 +193,15 @@ def cover():
     return render_template('index.html')
 
 @app.route('/process-file', methods=['POST'])
+@cross_origin(origin="http://localhost:3000")
 def process_file():
     global db_filename
-    file = request.files.get('file')
-    if not file:
+    if 'file' not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
-    file_type = extract_type(file.filename)
+    
+    file = request.files['file']
+    file_type = file.filename.split(".")[-1].lower()
+
     if file_type == "csv":
         db_filename = csv_to_db(file)
     elif file_type == "xlsx":
@@ -208,14 +210,28 @@ def process_file():
         db_filename = sql_to_db(file)
     else:
         return jsonify({"error": "Unsupported file format"}), 400
-    
-    
-    return jsonify({"database": db_filename})
+
+    conn = sqlite3.connect(db_filename)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    tables = cursor.fetchall()
+
+    if tables:
+        cursor.execute(f"PRAGMA table_info({tables[0][0]});")
+        table_info = cursor.fetchall()
+        columns = [col[1] for col in table_info]
+    else:
+        columns = []
+
+    return jsonify({"database": db_filename, "tableData": columns})
 
 @app.route('/process-query', methods=['POST'])
-def user_query():
+@cross_origin(origins="http://localhost:3000")
+def userQuery():
     global db_filename
-
+    data = request.get_json()
+    query = data.get('query')
+    
     if not db_filename:
         return jsonify({"error": "No database available. Upload a file first."}), 400
     
@@ -239,91 +255,131 @@ def user_query():
         schema = {col[1]: col[2] for col in table_info} 
         table_schemas[table_name] = schema
     
+    if not query:
+        return jsonify({"error": "No query provided"}), 400
     
-    df = pd.read_excel("predicted.xlsx")
-    queries = df['question']
-  
-    query_list = queries.iloc[0:len(queries)]
-    
-    filtered_rows = []
-    filtered_cols = []
-    generated_responses = []
-
-    for query in query_list:
-        if not query:
-            return jsonify({"error": "No query provided"}), 400
-        
-        prompt = sql_query_generation_prompt(query,table_title, table_schemas)
-        time.sleep(5)
-        response = generate_response(prompt)
-       
-        data_dict = extract_sql_query(response)
-        data_dict = eval(data_dict)
-        
-        try:
-            cursor.execute(data_dict['sql_query'])
-            ans = cursor.fetchall()
-            ans = ",".join(str(row[0]) for row in ans) if ans else "" 
-
-            cursor.execute(data_dict['row_query'])
-            rows = cursor.fetchall()
-            rows_str = ",".join(str(row[0]) for row in rows) if rows else "" 
-        except Exception as e:
-            ans = ""     
-            rows_str = "" 
-        
-        cols = data_dict['columns']
-        col_list = []
-        for col in cols:
-            for col_info in table_info:
-                if col_info[1] == col: 
-                    col_list.append(col_info[0]-1)
-                    break 
-       
-        col_str = ",".join(map(str, col_list))
-     
-        filtered_rows.append(rows_str)
-        filtered_cols.append(col_str)
-        generated_responses.append(ans)
-        
-    while(len(filtered_rows) != len(queries)): 
-        filtered_rows.append("")
-        filtered_cols.append("")
-        generated_responses.append("")
-        
-    # Assign lists to DataFrame columns
-    df['filtered row index'] = filtered_rows
-    df['filtered column index'] = filtered_cols
-    df['generated response'] = generated_responses
-    
-    df.to_excel("predicted.xlsx")
-    conn.close()
-    
-    file_path = "static/files/predicted.xlsx"
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    df.to_excel(file_path, index=False)
-
-    return jsonify({'status': "ok", 'url': f"http://localhost:5000/download_file/predicted.xlsx"})
+    prompt = sql_query_generation_prompt(query,table_title, table_schemas)
+    response = generate_response(prompt)
+    data_dict = extract_sql_query(response)
+    data_dict = eval(data_dict)
+    print(data_dict['sql_query'])
+    cursor.execute(data_dict['sql_query'])
+    ans = cursor.fetchall()
+    return jsonify({'status': "ok", 'data': {'ans':ans,'query':query}})
 
 
-@app.route('/download_file/<filename>', methods=["GET"])
-def download_file(filename): 
-    return send_from_directory("static/files", filename, as_attachment=True)
-
-@app.route('/evalute-file',methods=["POST"])
-@cross_origin()
-def evalute_file():
-    table_score,res_score,total_score,f_score = final_score(1000,11)
-    return jsonify({
-    'status':"ok",
-    'score': {
-        'table_score': table_score,
-        'res_score': res_score,
-        'total_score': total_score,
-        'f_score': f_score
-    }
-    })
-    
 if __name__ == '__main__':
     os.makedirs("uploads", exist_ok=True)
     app.run(host="0.0.0.0", port=5000, debug=True)
+
+# @app.route('/process-query-listfile', methods=['POST'])
+# def user_query():
+#     global db_filename
+
+#     if not db_filename:
+#         return jsonify({"error": "No database available. Upload a file first."}), 400
+    
+#     conn = sqlite3.connect(db_filename)
+#     cursor = conn.cursor()
+#     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+#     tables = cursor.fetchall()
+#     if not tables:
+#         conn.close()
+#         return jsonify({"error": "No tables found in database"}), 500
+    
+#     table_title = tables[0]
+#     table_schemas = {}
+#     table_info = ""
+    
+#     table_title = tables[0]
+#     for table in tables:
+#         table_name = table[0]
+#         cursor.execute(f"PRAGMA table_info({table_name});")
+#         table_info = cursor.fetchall()
+#         schema = {col[1]: col[2] for col in table_info} 
+#         table_schemas[table_name] = schema
+    
+    
+#     df = pd.read_excel("predicted.xlsx")
+#     queries = df['question']
+  
+#     query_list = queries.iloc[0:len(queries)]
+    
+#     filtered_rows = []
+#     filtered_cols = []
+#     generated_responses = []
+
+#     for query in query_list:
+#         if not query:
+#             return jsonify({"error": "No query provided"}), 400
+        
+#         prompt = sql_query_generation_prompt(query,table_title, table_schemas)
+#         time.sleep(5)
+#         response = generate_response(prompt)
+       
+#         data_dict = extract_sql_query(response)
+#         data_dict = eval(data_dict)
+        
+#         try:
+#             cursor.execute(data_dict['sql_query'])
+#             ans = cursor.fetchall()
+#             ans = ",".join(str(row[0]) for row in ans) if ans else "" 
+
+#             cursor.execute(data_dict['row_query'])
+#             rows = cursor.fetchall()
+#             rows_str = ",".join(str(row[0]) for row in rows) if rows else "" 
+#         except Exception as e:
+#             ans = ""     
+#             rows_str = "" 
+        
+#         cols = data_dict['columns']
+#         col_list = []
+#         for col in cols:
+#             for col_info in table_info:
+#                 if col_info[1] == col: 
+#                     col_list.append(col_info[0]-1)
+#                     break 
+       
+#         col_str = ",".join(map(str, col_list))
+     
+#         filtered_rows.append(rows_str)
+#         filtered_cols.append(col_str)
+#         generated_responses.append(ans)
+        
+#     while(len(filtered_rows) != len(queries)): 
+#         filtered_rows.append("")
+#         filtered_cols.append("")
+#         generated_responses.append("")
+        
+#     # Assign lists to DataFrame columns
+#     df['filtered row index'] = filtered_rows
+#     df['filtered column index'] = filtered_cols
+#     df['generated response'] = generated_responses
+    
+#     df.to_excel("predicted.xlsx")
+#     conn.close()
+    
+#     file_path = "static/files/predicted.xlsx"
+#     os.makedirs(os.path.dirname(file_path), exist_ok=True)
+#     df.to_excel(file_path, index=False)
+
+#     return jsonify({'status': "ok", 'url': f"http://localhost:5000/download_file/predicted.xlsx"})
+
+
+# @app.route('/download_file/<filename>', methods=["GET"])
+# def download_file(filename): 
+#     return send_from_directory("static/files", filename, as_attachment=True)
+
+# @app.route('/evalute-file',methods=["POST"])
+# @cross_origin()
+# def evalute_file():
+#     table_score,res_score,total_score,f_score = final_score(1000,11)
+#     return jsonify({
+#     'status':"ok",
+#     'score': {
+#         'table_score': table_score,
+#         'res_score': res_score,
+#         'total_score': total_score,
+#         'f_score': f_score
+#     }
+#     })
